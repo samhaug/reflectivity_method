@@ -1,0 +1,401 @@
+<HTML>
+<HEAD>
+<TITLE>ERZSOL</TITLE>
+<LINK REV="made" HREF="mailto:brian@rses.anu.edu.au">
+</HEAD>
+<BODY bgcolor="#FFFFCC" text="#000000">
+<P>
+<H1>ERZSOL3</H1>
+<H2>CALCULATION OF THE SEISMIC RESPONSE OF A STRATIFIED ELASTIC MODEL
+TO A POINT MOMENT TENSOR SOURCE</H2> 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<P>
+<H3>B.L.N. Kennett<BR>
+Research School of Earth Sciences<BR>
+Australian National University
+<P>
+
+<H4>
+This program is designed for the calculation of the seismic response 
+of a horizontally layered medium to a general point source specified 
+by a point moment ensor in the time-distance domain
+</H4>
+<HR>
+
+<p>
+<a href="#1"> Model File Specification:</a><p>
+<a href="#2"> Theoretical Seismogram Calculation</a><p>
+<a href="#3"> Command file structure</a><p>
+<a href="#4"> Explanation of input parameters for ERZSOL3 </a><p>
+<a href="#5"> ZST format for seismograms and travel times</a><p>
+<HR>
+<p>
+<a name="1">
+
+<H3>Model File Specification:</H3></A>
+<P>
+The calculations use a velocity and attenuation model 
+in the following form:
+- all velocities are in kilometres/second
+  depths or thicknesses in kilometres<br>
+  densities in Mg/metre cubed
+<p>
+Model file : ew1.mod
+
+<PRE>
+  ew1                                                        Model name
+      4        0                                             # layers, ndt
+3   5.000    2.600     2.70     1.000    0.001     0.002
+3   5.000    2.600     2.70     6.000    0.001     0.002
+3   5.500    2.700     2.75     5.000    0.001     0.002
+3   6.000    2.800     2.80     5.000    0.001     0.002
+
+nr   alpha    beta      rho      thick    1/Qa      1/Qb
+    [P km/s] [S km/s]  [Mg/m3]   [km]
+
+</PRE>
+<P>
+The index nr controls the number of reverberations in the layer
+<PRE>
+nr = 0  - no reflection from top of layer
+   = 1  - no internal multiples in layer
+  >= 3  - all internal multiples in layer
+</PRE>
+<P>
+(nr > 3 marks reflection boundaries for ray tracing routines)<BR>
+(nr =2 gives a partial set of internal multiples and is not generally
+ useful)
+<P>
+The control parameter ndt determines whether the model is specified
+in terms of the thickness of layers or the depth of boundaries.
+<PRE>
+ndt = 0 - thickness
+ndt = 1 - depth
+</PRE>
+<p>
+<a href="#TOP"> Contents</a><p>
+<HR>
+<a name="2">
+<H3>Theoretical Seismogram Calculation</H3>
+
+The calculation of the seismic response of a horizontally layered
+elastic medium to a buried seismic source is carried out by building up the
+response in the slowness-frequency domain.
+<P>
+All the internal calculations are carried out in memory for a
+single seismic component at a time:
+In the Fortran program erzsol3 - the complex arrays 
+RU(5,2500,600), RV(5,2500,600), RW(5,2500,600)
+are dimensioned to allow:
+600 active frequencies and 2500 slownesses
+and include the azimuthal components assoaiated with a moment tensor
+point source.
+
+<P>
+A seismogram at a particular distance is produced by<BR>
+a) an integration over slowness at each frequency with a distance 
+   specific slowness factor<BR>
+b) a Fast Fourier transform over frequency
+
+<P>
+The restriction on the number of slownesses in a single run to 2500
+means that an integration over the full slowness range relevant to
+all possible arrivals may often be best carried out using 2-4 separate
+slowness integrations and then summing the seismogram traces at the same
+distance to produce the final theoretical seismogram.  This procedure
+also allows the sampling in slowness to be reduced for larger slowness
+and so improve the accuracy of the integration.
+
+<P>
+The theoretical seismogram program erzs is used with a control file
+which specifies the model file to be used and the parameters for
+ray parameters and frequencies and multiples to be used in the calculation
+
+  erzs < ers.p1.cmd
+<p>
+<a href="#TOP"> Contents</a><p>
+<HR>
+<a name="3">
+<H3>Command file structure</H3>
+
+The command file (ew1.cmd) has the form
+
+<PRE>
+"ERZSOL3-ew1  "                         Title
+"ew1.tx.z"                              File for T-X seismogram output
+"ew1.mod"                               Velocity model file
+"HS"                                    Surface Condition (HS,H1,WF,WS)
+  1200                                  Number of slownesses (<2500)
+  0.0001                                Minimum slowness
+  0.7001                                Maximum slowness
+10                                      Slowness taper plo (n samples)
+10                                      Slowness taper phi (n samples)
+"WA"                                    Wavelet input or Ricker (WA/RI)
+"ew.wav"                                Wavelet file
+"YE"                                    Exponential damping? (YE/NO)
+  2048                                  Number of time points
+  0.01                                 Time step
+   0.01  0.10                            Frequency taper (low)
+   10.0  20.0                            Frequency taper (high)
+   2.0                                  Dominant frequency      [RI]
+   1.00      0.50       0.00            Moment tensor Components
+   0.50      0.00       0.00
+   0.00      0.00      -1.00
+   3.0                                  Depth of source
+"ew.dst"                                Range and azimuth file
+  0.0                                   Reduction slowness
+  0.000                                 Start time (reduced)
+"NO"                                    Debug/frequency-wavenumber (YE/NO)
+"NO"                                    Debug/waveform (YE/NO)
+</PRE><br> 
+The seismograms are produced in 'zst' format for subsequent 
+plotting.
+<a href="#TOP"> Contents</a><p>
+<HR>
+
+<a name="4">
+<H3>Explanation of input parameters</H3>
+
+<PRE>
+Note all dimensions are in kilometres and times in seconds
+
+1)  Title for Run
+     Character string to be used as header for run
+
+2)  File for T-X seismogram output
+     Character string for name of file to receive T-X seismogram
+     output in zst format
+
+3)  Velocity model file:
+     Character string for name of file with model specification
+          the model file should be in the standard model file format
+           (ndt = 0 for layer thickness specification)
+
+4)  Surface Condition:
+      The various boundary conditons to be applied at the surface are
+      specified by mnemonics 
+         A full calculation for a half space with 
+            elastic free surface conditions              "HS"
+         Calculation for a half space with only 
+            first order surface reflections included     "H1"
+         Calculation for a non-reflecting surface
+            but with displacement corrected for 
+            free surface amplification                   "WF"
+         Calculation for a non-reflecting surface        "WS"
+
+5)  Number of slownesses (<2500)
+      Integer specifying the number of slownesses to be used.
+
+      The slowness interval is divided into equal intervals to
+      enable the integration over slowness to be performed
+      Too coarse a slowness choice will give rise to inadequate
+      sampling which usually gives oscillations in the seismograms
+      at the highest frequency used.
+
+6) Minimum slowness
+      Lower edge of slowness band in s/km
+
+7) Maximum slowness
+      Upper edge of slowness band in s/km
+
+    The theoretical seismograms for a single slowness panel will normally
+    display numerical arrivals with the slownesses of the upper and lower
+    limits of the window.  These can often be of significant amplitude.
+    However, the adjacent panels will have comparable arrivals of opposite
+    sign and on summation over the slowness panels the cancellation is 
+    very successful.
+  
+    For land reflection work slowness bands of
+      0.0001 - 0.30
+      0.30   - 0.45
+      0.45   - 0.60
+      0.60   - 0.75
+    will generally be sufficient to cover all arrivals
+
+8) Slowness taper plo (n samples)
+     Integer specifying the number of samples at the lower end of the
+     slowness window over which the response is linearly tapered to
+     zero
+
+9) Slowness taper phi (n samples)
+     Integer specifying the number of samples at the upper end of the
+     slowness window over which the response is linearly tapered to
+     zero
+
+  If a several slowness panels are be added together then the number of
+  samples should be set to zero - this will ensure the cancellation
+  of numerical arrivals which have opposite sign on adjacent panels
+
+10) Choice of source wavelet
+      Specified time points    - "WA"
+      Ricker wavelet           - "RI"
+
+11) File for wavelet input 
+     Character string for name of file for source wavelet input
+     (needs to be specified even when "RI" option used)
+ 
+12) Exponential damping
+     Specification of exponential damping in time in construction 
+     of seismograms ("YE" or "NO")
+
+     If "YE" is specified the calculations are carried out in the 
+     complex frequency domain with an effective exponential damping 
+     applied in time. This improves the situation with aliasing in time
+     and so shorter total time intervals can often be employed.
+     However weak spatially aliased arrivals late in the record are
+     magnified dramatically when exponential gain is applied to recover 
+     the true time response.  As a result when exponential gain is used 
+     only the first 3/4 of the time interval has gain recovery applied, 
+     the remaining 1/4 should not be regarded as useful.
+
+     If "NO" is specified then the calculations are all performed
+     for real frequency and care needs to be taken to have the time
+     interval of calculation long enough to avoid aliasing in time.
+
+13) Number of time points
+     Integer power of 2 e.g. 2048, specifying the total number of
+     time points in the theoretical seismograms
+
+14) Time step
+     Sampling interval in time in seconds i.e. 4 ms sampling is 
+     specified as 0.004
+
+15) Frequency taper (low)
+     A cosine taper in frequency is applied between the two
+     specified frequencies e.g. for
+       0.01  0.10
+     Zero response is specified for frequencies less than 5 Hz and
+     unit response for frequencies higher than 7 Hz with a cosine 
+     taper between.
+
+16) Frequency taper (high)
+     A cosine taper in frequency is applied between the two
+     specified frequencies e.g. for
+       10.0  20.0
+     Unit response is specified for frequencies less than 57 Hz and
+     zero response for frequencies higher than 7 Hz with a cosine 
+     taper between.
+
+  Care should be taken that the number of discrete frequencies in the
+  pass band of the band-pass filter does not exceed 600  - or array
+  bound violations will occur with unpredictable results
+
+17) Dominant Frequency for Ricker wavelet ["RI"]
+     values of dominant ferequency to be used is "RI" wavelet selected
+     (must be given even when "WA" option used)
+
+18) Components of point moment tensor [x=N, y=E, z=D] in order
+       Mxx, Mxy, Mxz
+       Myx, Myy, Myz
+       Mzx, Mzy, Mzz
+     For an explosive pressure source specify
+       MXX=MYY=MZZ= 1.0 ,  all others zero
+
+19) Depth of source
+     The depth of the source below the surface in km
+     
+     Note the program is built around a model of a point source
+     (an array can be simulated in part by weighting dipole sources
+      or by summing the response from different sources)
+
+20) File for ranges and azimuths
+     Character string for name of range and azimuth file 
+
+22) Reduction slowness
+     Value in s/km for the slowness to be used to adjust the time axis
+     to follow spcific arrivals.  Valuable for refraction calculations
+     but for reflection work set equal to 0.0
+
+22) Start time (reduced)
+     The beginning of the theoretical seismograms allowing for the
+     reduction slowness.
+     Use 0.00 to have the theoretical seismograms starting at the 
+     source instant.
+
+23) Debug/frequency-wavenumber ("YE" or "NO")
+
+24) Debug/waveform             ("YE" or "NO")
+
+  Setting either of these parameters to "YE" generates copious output
+  and should not be necessary in normal use
+
+
+Example of Wavelet file "ew.wav"
+   Integer number of time points in specification of source waveform
+   followed by discrete waveform values , e.g.,
+
+   3                                   # of points in waveform /waveform
+ 100.0     0.00     0.00
+
+     A complex time signature can be introduced here if desired but 
+     it is just as easy to use a delta function source and then 
+     convolve later with an appropriate source-time function
+
+Example of range and azimuth file "ew.dst"
+   Integer number of distances 
+   followed by distances in km, azimuth in degrees
+
+   10                                   #  of distances /distances
+  2.00      45.00
+  4.00      45.00
+  6.00      45.00
+  8.00      45.00
+ 10.00      45.00
+ 12.00      45.00
+ 14.00      45.00
+ 16.00      45.00
+ 18.00      45.00
+ 20.00      45.00
+ 22.00      45.00
+
+</PRE>
+<p>
+<a href="#4"> Further explanations</a><p>
+<a href="#TOP"> Contents</a><p>
+<HR>
+<a name="5">
+<H3>ZST format for seismograms and travel times:</H3>
+
+  The information is stored as unformatted Fortran output
+  in the following form
+<PRE>
+
+       For seismograms:
+      
+             nrange  -    number of distances
+             ncomp   -    number of components for each distance
+      
+      ...for each component:   (nrange*ncomp records)
+             range   -    distance in km
+             azim    -    azimuth (degrees)
+             ichar   -    component identifier (char*4)
+             delt    -    time sampling interval
+             ntim    -    number of time points
+             pcal    -    reduction slowness for calculation
+             tcal    -    start time of calculation (absolute)
+             smax    -    maximum value of seismogram
+             (seis(k),k=1,ntim)  -  time series
+      ...end component loop
+      
+      
+
+  COMMAND FILES:
+
+        The command files have a fixed syntax:
+      
+          commands are read with a2
+          file names are read with a30
+          titles, labels with a72
+          numbers are read free formatted 
+
+       for each instruction a brief explanation is given 
+       in columns 41-80 for commands,numbers
+       in columns 72-80 for titles etc
+
+</PRE>
+<p>
+<a href="#4"> Further explanations</a><p>
+<a href="#TOP"> Contents</a><p>
+<HR>
+</BODY>
+</HTML>
